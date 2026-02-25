@@ -20,6 +20,24 @@ running conversation agents using the CrewAI framework.
 
 ## Getting started
 
+The repository has a simple layout:
+
+```
+/ (repo root)
+├── Dockerfile            # container build recipe
+├── README.md             # this documentation
+├── requirements.txt      # Python deps for building/runtime
+└── app/
+    └── crew/             # actual Python package used at runtime
+        ├── __init__.py
+        ├── agent.py
+        ├── server.py
+        └── ...
+``` 
+
+When you run the container or install the package, `/app` is added to
+`PYTHONPATH` so `import crew` works as before.
+
 This module is designed so that a downstream user need only tell us where
 the model-router and Redis are located via environment variables or the
 `config.py` defaults.  All of the heavy logic – agent management,
@@ -28,12 +46,10 @@ selects this package, runs the server, and POSTs requests or connects via
 WebSocket.  No additional configuration is required for the basic use
 case.
 
-1. Install dependencies from the root repo or the `crew/requirements.txt`.
+1. Install dependencies from the root repo or the `requirements.txt` in the repository:
 
    ```bash
    pip install -r requirements.txt  # for the full workspace
-   # or
-   pip install -r crew/requirements.txt
    ```
 
 2. Provide configuration by setting environment variables (or edit
