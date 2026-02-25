@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+httpx
+redis
+pydantic
+python-dotenv
+typer
+crewai
+psycopg2-binary
+requests
+
