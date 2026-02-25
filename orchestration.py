@@ -9,6 +9,7 @@ sub/message queues, or more sophisticated session handling as needed.
 from typing import Dict
 
 from .agent import create_agent
+from .observability import events
 
 
 class AgentRole:
@@ -65,4 +66,14 @@ class MultiAgentOrchestrator:
             input_text=message,
             model=model,
         )
+        # emit an observability event for each turn so listeners can
+        # log/monitor the conversation.
+        events.emit("message", {
+            "from": from_role,
+            "to": to_role,
+            "session_id": session_id,
+            "input": message,
+            "response": response,
+            "model": model,
+        })
         return response
