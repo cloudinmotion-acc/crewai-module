@@ -1,12 +1,3 @@
-# This Dockerfile builds a lightweight image containing only the
-# CrewAI module and its minimal dependencies.  The application code is
-# stored under `app/crew` in the repository; the container sets `/app`
-# as its working directory so `import crew` works automatically.  The
-# `crewai` runtime package is installed via pip from requirements.
-#
-# Usage (from repo root):
-#   docker build -f Dockerfile -t crewai-server:latest .
-#
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1

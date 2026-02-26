@@ -42,6 +42,12 @@ def test_create_agent_with_custom_memory():
     # underlying memory should be the same instance
     assert agent.memory is mem
 
+    # verify the stubbed agent can actually run and echoes input
+    import asyncio
+
+    resp = asyncio.run(agent.run("sid", "hello", model="test-model"))
+    assert resp == "echo:hello"
+
 
 def test_capabilities_exported():
     import crew

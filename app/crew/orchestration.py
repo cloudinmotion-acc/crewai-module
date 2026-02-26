@@ -6,7 +6,7 @@ is intentionally minimal; you can extend it with broadcast logic,
 sub/message queues, or more sophisticated session handling as needed.
 """
 
-from typing import Dict
+from typing import Dict, Optional
 
 from .agent import create_agent
 from .observability import events
@@ -26,7 +26,7 @@ class MultiAgentOrchestrator:
         model_router_url: str,
         redis_host: str,
         redis_port: int = 6379,
-        redis_password: str | None = None,
+        redis_password: Optional[str] = None,
     ) -> None:
         self.roles: Dict[str, AgentRole] = {}
         self.model_router_url = model_router_url

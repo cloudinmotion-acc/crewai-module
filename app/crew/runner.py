@@ -3,6 +3,14 @@ from typing import Optional
 import typer
 import asyncio
 
+# ``serve`` conditionally uses uvicorn.  Importing it at the top level
+# makes it easier to monkeypatch in unit tests and avoids repeated
+# imports when the CLI is invoked multiple times.
+try:
+    import uvicorn
+except ImportError:  # pragma: no cover - tests may patch this
+    uvicorn = None  # type: ignore
+
 from .agent import create_agent
 from .config import MODEL_ROUTER_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 from pathlib import Path
@@ -106,9 +114,7 @@ def serve(
     user simply runs this command and then POSTs to ``/run`` or connects
     to ``/stream``; all heavy lifting happens in the backend.
     """
-    try:
-        import uvicorn
-    except ImportError:
+    if uvicorn is None:
         typer.echo("uvicorn is required to run the server (install crew/requirements.txt)")
         raise typer.Exit(code=1)
 

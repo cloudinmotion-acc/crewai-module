@@ -39,22 +39,35 @@ class InMemoryMemory(MemoryBackend):
         # lists stored separately for convenience
         self._lists: Dict[str, List[Any]] = {}
         # protect with a lock so concurrent coroutines behave
-        self._lock = asyncio.Lock()
+        # ``asyncio.Lock`` requires a running event loop on Python 3.9,
+        # which isn't available during module import or when tests
+        # construct the object synchronously.  Lazily create the lock in
+        # the first async operation to avoid "no current event loop"
+        # errors.
+        self._lock = None  # type: ignore[var-annotated]
 
     async def get(self, key: str) -> Optional[Any]:
-        async with self._lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        async with self._lock:  # type: ignore
             return self._store.get(key)
 
     async def set(self, key: str, value: Any) -> None:
-        async with self._lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        async with self._lock:  # type: ignore
             self._store[key] = value
 
     async def append_to_list(self, key: str, value: Any) -> None:
-        async with self._lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        async with self._lock:  # type: ignore
             self._lists.setdefault(key, []).append(value)
 
     async def get_list(self, key: str) -> List[Any]:
-        async with self._lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        async with self._lock:  # type: ignore
             return list(self._lists.get(key, []))
 
 
