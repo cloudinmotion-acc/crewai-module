@@ -1,11 +1,3 @@
-"""Memory backend interfaces and helpers for CrewAI.
-
-The agent-runtime package already provides a Redis-based memory engine,
-but we define an abstract interface here so the rest of the crew module
-can be backend-agnostic.  An in-memory implementation is included for
-local testing and CLI replay features.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -71,16 +63,51 @@ class InMemoryMemory(MemoryBackend):
             return list(self._lists.get(key, []))
 
 
-# wrapper around the runtime's RedisMemory if available
+# real Redis-backed implementation using redis-py
 try:
-    from app.memory.redis import RedisMemory as _RuntimeRedisMemory
+    import redis.asyncio as aioredis
+except ImportError:  # redis package not installed (should be in requirements)
+    aioredis = None  # type: ignore
 
-    class RedisMemory(_RuntimeRedisMemory, MemoryBackend):
-        # subclass simply to satisfy our type system
-        pass
-except ImportError:  # pragma: no cover - runtime package not available
-    # provide a dummy implementation so imports don't break
-    class RedisMemory(MemoryBackend):
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            raise RuntimeError("RedisMemory requires the agent-runtime package")
+
+class RedisMemory(MemoryBackend):
+    """Async Redis-based memory store."""
+
+    def __init__(self, host: str, port: int = 6379, password: Optional[str] = None) -> None:
+        if aioredis is None:
+            raise RuntimeError("redis package is required for RedisMemory")
+        self._client = aioredis.Redis(host=host, port=port, password=password)
+
+    async def get(self, key: str) -> Optional[Any]:
+        val = await self._client.get(key)
+        if val is None:
+            return None
+        try:
+            return val.decode()  # assume utf-8 string
+        except AttributeError:
+            return val
+
+    async def set(self, key: str, value: Any) -> None:
+        # convert non-bytes to string
+        if not isinstance(value, (bytes, bytearray)):
+            value = str(value)
+        await self._client.set(key, value)
+
+    async def append_to_list(self, key: str, value: Any) -> None:
+        if not isinstance(value, (bytes, bytearray)):
+            value = str(value)
+        await self._client.rpush(key, value)
+
+    async def get_list(self, key: str) -> List[Any]:
+        entries = await self._client.lrange(key, 0, -1)
+        # decode bytes
+        result: List[Any] = []
+        for v in entries:
+            try:
+                result.append(v.decode())
+            except AttributeError:
+                result.append(v)
+        return result
+
+# previous stub for runtime compatibility removed
 

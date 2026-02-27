@@ -1,11 +1,15 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+import logging
+import traceback
 
 from .agent import create_agent
 from .config import MODEL_ROUTER_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 from .observability import events
 from .plugins import PluginManager
 from fastapi import WebSocket
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="CrewAI Standalone Server")
 
@@ -20,12 +24,14 @@ plugin_manager = PluginManager()
 @app.on_event("startup")
 def on_startup():
     global agent
+    logger.info(f"creating agent using router={MODEL_ROUTER_URL}, redis={REDIS_HOST}:{REDIS_PORT}")
     agent = create_agent(
         model_router_url=MODEL_ROUTER_URL,
         redis_host=REDIS_HOST,
         redis_port=REDIS_PORT,
         redis_password=REDIS_PASSWORD,
     )
+    logger.info(f"agent created with memory={type(agent.memory).__name__}")
 
 @app.post("/run")
 async def run_crewai(request: CrewRequest):
@@ -55,6 +61,8 @@ async def run_crewai(request: CrewRequest):
         await plugin_manager.execute("post_run", context)
         return {"response": response}
     except Exception as e:
+        error_detail = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+        logger.error(f"Error in /run endpoint: {error_detail}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")

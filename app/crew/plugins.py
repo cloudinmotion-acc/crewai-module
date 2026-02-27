@@ -60,5 +60,9 @@ class PluginManager:
         return list(self._plugins.keys())
 
     async def execute(self, name: str, context: Dict[str, Any]) -> None:
+        """Execute a plugin if it exists. If the plugin is not registered,
+        this is a no-op (plugins are optional hooks)."""
+        if name not in self._plugins:
+            return
         plugin = self.get(name)
         await plugin.run(context)

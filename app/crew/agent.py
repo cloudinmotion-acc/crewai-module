@@ -1,14 +1,9 @@
-import sys
-from pathlib import Path
 from typing import Optional
 
-# Add the parent directory to sys.path so we can import app modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from app.agents.crewai_agent import CrewAIAgent
-from app.router.client import ModelRouterClient
+from ..agents.crewai_agent import CrewAIAgent
+from ..router.client import ModelRouterClient
 # we still import RedisMemory for compatibility in the default factory
-from app.memory.redis import RedisMemory as _RuntimeRedisMemory
+from ..memory.redis import RedisMemory as _RuntimeRedisMemory
 
 from .memory import MemoryBackend, RedisMemory as CrewRedisMemory, InMemoryMemory
 
@@ -29,9 +24,12 @@ def create_agent(
     ``memory`` object takes precedence.
     """
     router = ModelRouterClient(model_router_url)
-    if memory is None:
-        if redis_host is None:
-            raise ValueError("either memory or redis_host must be provided")
-        # prefer the Crew-specific wrapper so we satisfy our interface
-        memory = CrewRedisMemory(redis_host, redis_port, redis_password)
-    return CrewAIAgent(router=router, memory=memory)
+    if memory is not None:
+        chosen = memory
+    elif redis_host:
+        # use real Redis if host provided
+        chosen = CrewRedisMemory(redis_host, redis_port, redis_password)  # type: ignore
+    else:
+        # fallback to in‑memory storage for local development/tests
+        chosen = InMemoryMemory()
+    return CrewAIAgent(router=router, memory=chosen)

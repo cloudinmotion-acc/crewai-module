@@ -87,6 +87,65 @@ case.
    Resulting JSON will contain the agent's response.  Subsequent turns may
    reuse the same `session_id` for context.
 
+## Testing the API
+
+Once the server is running, you can test it in several ways:
+
+### Using Swagger UI (Easiest)
+
+Visit `http://127.0.0.1:9100/docs` in your browser for an interactive API explorer where you can:
+- Click on any endpoint
+- Click "Try it out"
+- Enter test data
+- Click "Execute"
+
+### Using curl from terminal
+
+**Test basic request:**
+```bash
+curl -X POST http://127.0.0.1:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"chat1","input":"Hello, how are you?"}'
+```
+
+**Test conversation state persistence (same session):**
+```bash
+# First request
+curl -X POST http://127.0.0.1:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"chat1","input":"Hello, how are you?"}'
+
+# Follow-up request (tests that history is maintained)
+curl -X POST http://127.0.0.1:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"chat1","input":"What did I just ask you?"}'
+```
+
+**Test separate sessions:**
+```bash
+# Session A
+curl -X POST http://127.0.0.1:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"alice","input":"I like cats"}'
+
+# Session B (different session - separate history)
+curl -X POST http://127.0.0.1:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"bob","input":"I like dogs"}'
+```
+
+**Health check:**
+```bash
+curl http://127.0.0.1:9100/health
+```
+
+### Key test observations
+
+- ✅ Responses include router prefix `[router:gpt-5-nano]`
+- ✅ Second request in same session includes full conversation history
+- ✅ Different sessions maintain separate conversation histories
+- ✅ `/health` endpoint returns `{"status":"ok"}`
+
 For now, the server is the primary component the user interacts with; the
 other utilities (multi‑agent orchestrator, workflows, plugins, etc.) are
 available for later extension (v2).  The package also exposes a small
@@ -109,6 +168,39 @@ or another developer want to build on top of the basic server.
 A `Dockerfile` is provided for building a container that contains just
 this package and its dependencies.  Refer to the top‑level README for
 instructions on building and running the image.
+
+### Building and running
+
+You can build and run the service locally with Docker:
+
+```bash
+# build the image (run from repo root)
+docker build -t crewai-module ./crewai-module
+
+# run with default port exposed; set configuration via env vars
+docker run --rm -p 9100:9100 \
+  -e MODEL_ROUTER_URL="http://model-router:8000" \
+  -e REDIS_HOST="redis.local" \
+  crewai-module
+```
+
+By default the container listens on port `9100` and starts the
+FastAPI server.  Override `CMD` or supply additional arguments if you
+prefer to run the CLI (`python -m crew.runner`) or add debugging flags.
+
+If you use `docker-compose` the service entry might look like:
+
+```yaml
+version: '3.8'
+services:
+  crewai:
+    build: ./crewai-module
+    ports:
+      - "9100:9100"
+    environment:
+      MODEL_ROUTER_URL: "http://model-router:8000"
+      REDIS_HOST: "redis"
+```
 
 ## Extending the module
 
