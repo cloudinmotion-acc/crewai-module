@@ -2,6 +2,9 @@ from typing import Optional
 
 import typer
 import asyncio
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ``serve`` conditionally uses uvicorn.  Importing it at the top level
 # makes it easier to monkeypatch in unit tests and avoids repeated

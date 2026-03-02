@@ -1,378 +1,379 @@
 # CrewAI Module
 
-This directory contains the **CrewAI integration package**, which is
-intended to be used alongside the `agent-runtime` and `model-router`
-modules.  It provides a lightweight API and optional HTTP service for
-running conversation agents using the CrewAI framework.
+A lightweight FastAPI service that runs AI agents using the CrewAI framework. This module integrates with a **Model Router** (for inference) and **Redis** (for session state persistence) to provide a complete conversational AI system.
 
-## Package contents
+## 🚀 Quick Start (5 minutes)
 
-- `agent.py` – factory that constructs a `CrewAIAgent` object wired with
-  a `ModelRouterClient` and `RedisMemory` from the runtime.
-- `config.py` – configuration values (from environment variables).
-- `runner.py` – small CLI based on [typer](https://typer.tiangolo.com/)
-  useful during development.
-- `server.py` – minimal FastAPI application exposing `/run` and `/health`
-  endpoints; can be run as a standalone service or inside the main
-  `agent-runtime` process.
-- `tests/` – unit tests verifying basic behaviour of the factory and
-  server.
+### 1. Prerequisites
 
-## Getting started
+- Python 3.9+
+- Model Router running on `http://localhost:8000`
+- Redis or AWS ElastiCache available
+- curl or browser for testing
 
-The repository has a simple layout:
-
-```
-/ (repo root)
-├── Dockerfile            # container build recipe
-├── README.md             # this documentation
-├── requirements.txt      # Python deps for building/runtime
-└── app/
-    └── crew/             # actual Python package used at runtime
-        ├── __init__.py
-        ├── agent.py
-        ├── server.py
-        └── ...
-``` 
-
-When you run the container or install the package, `/app` is added to
-`PYTHONPATH` so `import crew` works as before.
-
-This module is designed so that a downstream user need only tell us where
-the model-router and Redis are located via environment variables or the
-`config.py` defaults.  All of the heavy logic – agent management,
-workflows, plugins, observability – lives behind the API; the user simply
-selects this package, runs the server, and POSTs requests or connects via
-WebSocket.  No additional configuration is required for the basic use
-case.
-
-1. Install dependencies from the root repo or the `requirements.txt` in the repository:
-
-   ```bash
-   pip install -r requirements.txt  # for the full workspace
-   ```
-
-2. Provide configuration by setting environment variables (or edit
-   `crew/config.py`):
-
-   ```bash
-   export MODEL_ROUTER_URL="http://model-router:8000"
-   export REDIS_HOST="redis.local"
-   export REDIS_PORT=6379
-   export REDIS_PASSWORD="..."
-   ```
-
-3. Run the server – either directly with uvicorn or via the CLI helper:
-
-   ```bash
-   # using the CLI since it comes built-in:
-   python -m crew.runner serve --host 0.0.0.0 --port 9100
-
-   # or equivalently:
-   uvicorn crew.server:app --reload --port 9100
-   ```
-
-   The process will print its listening address.  At this point the user
-   is ready to call the API; the backend handles all orchestration, memory,
-   and model calls.
-
-4. Example request:
-
-   ```bash
-   curl -X POST http://localhost:9100/run \
-     -H 'Content-Type: application/json' \
-     -d '{"session_id":"s1","input":"Hello"}'
-   ```
-
-   Resulting JSON will contain the agent's response.  Subsequent turns may
-   reuse the same `session_id` for context.
-
-## Testing the API
-
-Once the server is running, you can test it in several ways:
-
-### Using Swagger UI (Easiest)
-
-Visit `http://127.0.0.1:9100/docs` in your browser for an interactive API explorer where you can:
-- Click on any endpoint
-- Click "Try it out"
-- Enter test data
-- Click "Execute"
-
-### Using curl from terminal
-
-**Test basic request:**
-```bash
-curl -X POST http://127.0.0.1:9100/run \
-  -H "Content-Type: application/json" \
-  -d '{"session_id":"chat1","input":"Hello, how are you?"}'
-```
-
-**Test conversation state persistence (same session):**
-```bash
-# First request
-curl -X POST http://127.0.0.1:9100/run \
-  -H "Content-Type: application/json" \
-  -d '{"session_id":"chat1","input":"Hello, how are you?"}'
-
-# Follow-up request (tests that history is maintained)
-curl -X POST http://127.0.0.1:9100/run \
-  -H "Content-Type: application/json" \
-  -d '{"session_id":"chat1","input":"What did I just ask you?"}'
-```
-
-**Test separate sessions:**
-```bash
-# Session A
-curl -X POST http://127.0.0.1:9100/run \
-  -H "Content-Type: application/json" \
-  -d '{"session_id":"alice","input":"I like cats"}'
-
-# Session B (different session - separate history)
-curl -X POST http://127.0.0.1:9100/run \
-  -H "Content-Type: application/json" \
-  -d '{"session_id":"bob","input":"I like dogs"}'
-```
-
-**Health check:**
-```bash
-curl http://127.0.0.1:9100/health
-```
-
-### Key test observations
-
-- ✅ Responses include router prefix `[router:gpt-5-nano]`
-- ✅ Second request in same session includes full conversation history
-- ✅ Different sessions maintain separate conversation histories
-- ✅ `/health` endpoint returns `{"status":"ok"}`
-
-For now, the server is the primary component the user interacts with; the
-other utilities (multi‑agent orchestrator, workflows, plugins, etc.) are
-available for later extension (v2).  The package also exposes a small
-helper:
-
-```python
-import crew
-print(crew.capabilities())
-```
-
-which returns a dictionary of features.  This is useful if the end user
-is selecting the module from a catalogue and needs to know what it can
-do without reading the source.
-
-The rest of this README documents the underlying features in detail if you
-or another developer want to build on top of the basic server.
-
-## Docker image
-
-A `Dockerfile` is provided for building a container that contains just
-this package and its dependencies.  Refer to the top‑level README for
-instructions on building and running the image.
-
-### Building and running
-
-You can build and run the service locally with Docker:
+### 2. Install & Configure
 
 ```bash
-# build the image (run from repo root)
-docker build -t crewai-module ./crewai-module
+# Clone and navigate to the project
+cd /home/rhel/crewai-module
 
-# run with default port exposed; set configuration via env vars
-docker run --rm -p 9100:9100 \
-  -e MODEL_ROUTER_URL="http://model-router:8000" \
-  -e REDIS_HOST="redis.local" \
-  crewai-module
+# Install dependencies
+pip install -r requirements.txt
+
+# Check that everything is properly configured
+python verify_setup.py
 ```
 
-By default the container listens on port `9100` and starts the
-FastAPI server.  Override `CMD` or supply additional arguments if you
-prefer to run the CLI (`python -m crew.runner`) or add debugging flags.
+You should see all tests marked as ✅ PASS.
 
-If you use `docker-compose` the service entry might look like:
+### 3. Start the Server
 
-```yaml
-version: '3.8'
-services:
-  crewai:
-    build: ./crewai-module
-    ports:
-      - "9100:9100"
-    environment:
-      MODEL_ROUTER_URL: "http://model-router:8000"
-      REDIS_HOST: "redis"
+```bash
+# Run the FastAPI server
+python -m uvicorn app.crew.server:app --reload --port 9100
 ```
 
-## Extending the module
+You should see:
+```
+INFO:     Uvicorn running on http://0.0.0.0:9100
+```
 
-You are encouraged to add CrewAI‑specific features by creating new
-modules within this folder and exposing them through the public API.
-Several extension scaffolds are already included:
+### 4. Test the Application
 
-* **Multi-agent orchestration** (`orchestration.py`): maintain named
-  roles and route messages between them.  This provides a foundation for
-  role‑based conversations, debates, or multi‑agent workflows.
-* **Plugin system** (`plugins.py`): register `Plugin` instances that can
-  be executed with arbitrary context.  Plugins are ideal for calling
-  external APIs, performing actions, or mutating conversation state.
+In a new terminal, send a test request:
 
-Both subsystems include basic tests in `crew/tests`, which can serve as
-templates for your own additions.
+```bash
+curl -X POST http://localhost:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "test-session",
+    "input": "What is 2 + 2?",
+    "model": "gpt-5-nano"
+  }'
+```
 
-Other common extension ideas:
-
-* **Workflow/task framework** – chain asynchronous steps into a workflow
-  object.  See ``crew/workflows.py`` for the base classes and a simple
-  ticket-creation example.
-* **Streaming/WebSocket APIs** – the FastAPI server now exposes a
-  ``/stream`` websocket endpoint that yields partial chunks as they're
-  produced.  This can be backed by the model-router's streaming API or a
-  custom generator.
-* **Additional persistence back‑ends** – the new ``crew/memory.py``
-  defines a ``MemoryBackend`` interface and ships with an
-  ``InMemoryMemory`` implementation.  ``agent.create_agent`` accepts any
-  backend, so you can drop in Dynamo, SQL, or a long-term store.
-* **Observability hooks** – ``crew/observability.py`` provides a simple
-  ``EventEmitter``; both the orchestrator and server emit events on each
-  turn.  Listeners can log, export metrics, or drive analytics.
-* **CLI/SDK improvements** – ``crew/runner.py`` now includes commands to
-  load personas and replay sessions.  The ``run`` command also logs
-  interactions to ``~/.crew_sessions.json`` automatically.
-
-In the sections below we provide a complete usage guide covering these
-features.
+You should get back a JSON response with the AI's answer.
 
 ---
 
-## Detailed guide
+## 📋 What This Application Does
 
-### Multi-agent orchestration
-
-The ``MultiAgentOrchestrator`` class lets you register agents under
-role names and pass messages between them.  Each message pair shares a
-session identifier so history is preserved per conversation.
-
-```python
-from crew.orchestration import MultiAgentOrchestrator
-
-orch = MultiAgentOrchestrator(
-    model_router_url="http://router:8000",
-    redis_host="localhost",
-)
-orch.add_role("alice")
-orch.add_role("bob")
-
-resp = await orch.send_message("alice", "bob", "hello")
+```
+User Request
+    ↓
+CrewAI Agent receives your message
+    ↓
+Loads conversation history from Redis
+    ↓
+Calls Model Router for inference
+    ↓
+Saves updated conversation to Redis
+    ↓
+Returns the AI's response
 ```
 
-Events are emitted for every turn; you can add listeners with
-``crew.observability.events.on("message", callback)``.
+**Key Features:**
+- ✅ Maintains conversation history per session
+- ✅ Multiple concurrent sessions
+- ✅ Automatic Redis persistence
+- ✅ Real-time inference via Model Router
+- ✅ REST API + WebSocket support
 
-### Plugin system
+---
 
-Register custom ``Plugin`` instances to run before or after agent
-invocations.  The server exposes hooks on the ``/run`` endpoint.
+## 🔧 Configuration
 
-```python
-from crew.plugins import Plugin, PluginManager
+The application reads configuration from the `.env` file in the project root.
 
-class LogPlugin(Plugin):
-    async def run(self, ctx):
-        print("running with", ctx)
+### Environment Variables
 
-pm = PluginManager()
-pm.register("pre_run", LogPlugin())
+Create/edit `.env` file:
+
+```dotenv
+# Model Router (for AI inference)
+MODEL_ROUTER_URL=http://localhost:8000
+
+# Redis (for session state storage)
+# Supports both standalone Redis and AWS ElastiCache Cluster
+REDIS_HOST=clustercfg.test1h3march-redis-dev.gcvryk.use1.cache.amazonaws.com
+REDIS_PORT=6379
+REDIS_PASSWORD=your_redis_password
+
+# Optional: Session expiration (in seconds, default: 86400 = 24 hours)
+SESSION_TTL=86400
 ```
 
-Plugins receive a mutable context dictionary and may alter it or call
-external services.
+**Note on Redis Cluster:** If using AWS ElastiCache Cluster, ensure `REDIS_HOST` is the **cluster configuration endpoint** (starts with `clustercfg.`), not individual node addresses. SSL/TLS is automatically enabled with certificate verification.
 
-### Workflows/tasks
+### Using Environment Variables Instead of .env
 
-Create high‑level workflows by assembling async steps that operate on a
-shared context.
+If you prefer to set variables directly (useful in Docker):
 
-```python
-from crew.workflows import Workflow
+```bash
+export MODEL_ROUTER_URL=http://localhost:8000
+export REDIS_HOST=your-redis-host
+export REDIS_PORT=6379
+export REDIS_PASSWORD=your_password
 
-async def collect_info(ctx):
-    ctx["description"] = "user supplied text"
-
-async def call_api(ctx):
-    ctx["ticket_id"] = "TICKET-1234"
-
-wf = Workflow("create_ticket").add_step(collect_info).add_step(call_api)
-result = await wf.run({})
+python -m uvicorn app.crew.server:app --port 9100
 ```
 
-Workflows make it easy to encapsulate business logic on top of
-conversational state.
+---
 
-### Streaming API
+## 📖 API Endpoints
 
-The standalone server now supports a WebSocket endpoint:
+### POST /run
+Send a message and get a response.
+
+**Request:**
+```bash
+curl -X POST http://localhost:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "user-123",
+    "input": "Hello, how are you?",
+    "model": "gpt-5-nano"
+  }'
+```
+
+**Response:**
+```json
+{
+  "response": "I'm doing well, thank you for asking!"
+}
+```
+
+### GET /health
+Check if the server is running.
+
+```bash
+curl http://localhost:9100/health
+# Returns: {"status": "ok"}
+```
+
+### WebSocket /stream
+Get streaming responses (advanced).
 
 ```bash
 wscat -c ws://localhost:9100/stream
-# send {"session_id":"s1","input":"hello"}
+# Send: {"session_id": "s1", "input": "hello"}
 ```
-
-It will emit an object containing ``chunk`` for each piece of the
-response, then a final ``{"done": true}`` message.  You can wire this
-up to a browser or other real‑time client.
-
-### Memory backends
-
-By default ``create_agent`` uses Redis, but any ``MemoryBackend`` can be
-supplied.  The provided ``InMemoryMemory`` is useful for tests or CLI
-interactions:
-
-```python
-from crew.agent import create_agent
-from crew.memory import InMemoryMemory
-
-agent = create_agent(
-    model_router_url="http://router:8000",
-    memory=InMemoryMemory(),
-)
-```
-
-You can implement custom backends by subclassing ``MemoryBackend``.
-
-### Observability
-
-The global ``crew.observability.events`` emitter is used by both the
-orchestrator and server.  Subscribe to ``"message"`` or ``"turn"``
-events to capture data:
-
-```python
-from crew.observability import events
-
-def listener(data):
-    print("event", data)
-
-events.on("turn", listener)
-```
-
-### CLI & SDK
-
-The ``crew/runner.py`` script offers several handy utilities:
-
-* ``crew-run run`` – instantiate an agent and print usage hints.  All
-  interactions made through this command are logged automatically to
-  ``~/.crew_sessions.json``.
-* ``crew-run load-persona <path>`` – load and display a persona JSON or
-  YAML file.
-* ``crew-run replay <session_id>`` – print the entire conversation for a
-  given session from the log file.
-
-You can import ``crew.runner`` from Python and use the Typer app in
-other programs as well.
 
 ---
 
-The package remains deliberately lightweight; feel free to extend any of
-these components or replace the defaults to suit your needs.
+## 🧪 Testing
 
-*Note:* imports within the package currently assume the `agent-runtime`
-code is reachable via `sys.path`; once `agent-runtime` is published as a
-package this hack can be removed and normal imports used instead.
+### Verify Setup Works
+
+Before running the server, verify all components are connected:
+
+```bash
+python verify_setup.py
+```
+
+This checks:
+- ✅ Environment variables loaded
+- ✅ Model Router accessible
+- ✅ Redis connected
+- ✅ Agent instantiated correctly
+
+### Test Conversations
+
+**Test 1: Single message**
+```bash
+curl -X POST http://localhost:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "test", "input": "Hello", "model": "gpt-5-nano"}'
+```
+
+**Test 2: Multi-turn conversation (same session)**
+```bash
+# First message
+curl -X POST http://localhost:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "chat1", "input": "My name is Alice"}'
+
+# Second message (remembers context)
+curl -X POST http://localhost:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "chat1", "input": "What is my name?"}'
+```
+
+**Test 3: Separate sessions**
+```bash
+# Session A
+curl -X POST http://localhost:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "alice", "input": "I like cats"}'
+
+# Session B (separate history)
+curl -X POST http://localhost:9100/run \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "bob", "input": "I like dogs"}'
+```
+
+---
+
+## 🐳 Running with Docker
+
+### Build the Docker Image
+
+```bash
+docker build -t crewai-module:v1 .
+```
+
+### Run the Container
+
+```bash
+docker run -d \
+  -p 9100:9100 \
+  -e MODEL_ROUTER_URL=http://host.docker.internal:8000 \
+  -e REDIS_HOST=your-redis-host \
+  -e REDIS_PORT=6379 \
+  -e REDIS_PASSWORD=your_password \
+  crewai-module:v1
+```
+
+Or use the `.env` file:
+
+```bash
+docker run -d -p 9100:9100 --env-file .env crewai-module:v1
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### "Redis connection failed"
+- Verify Redis is running and accessible
+- Check `REDIS_HOST`, `REDIS_PORT`, and `REDIS_PASSWORD` in `.env`
+- Test connection: `redis-cli -h <HOST> ping`
+
+**Solution:**
+```bash
+# Check Redis is running
+redis-cli -h your-redis-host ping
+
+# Update .env with correct credentials
+nano .env
+```
+
+### "Model Router unreachable"
+- Verify Model Router is running on the configured port
+- Check `MODEL_ROUTER_URL` in `.env`
+- Test endpoint: `curl http://localhost:8000/health`
+
+**Solution:**
+```bash
+# Start Model Router if not running
+docker run -d -p 8000:8000 -e OPENAI_API_KEY=$KEY model-router:v1
+
+# Or verify it's accessible
+curl -X POST http://localhost:8000/generate \
+  -d '{"prompt":"test", "model":"gpt-5-nano", "state":{}}'
+```
+
+### "Environment variables not loaded"
+- Run `python verify_setup.py` to check what's loaded
+- Make sure `.env` file is in the project root
+- Use `export` if running shell commands directly
+
+**Solution:**
+```bash
+# Check what's loaded
+python -c "from dotenv import load_dotenv; load_dotenv(); import os; print(f'HOST={os.getenv(\"REDIS_HOST\")}')"
+```
+
+### See More Help
+Detailed troubleshooting guide: [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
+
+---
+
+## 📚 Advanced Usage
+
+### Project Structure
+
+```
+crewai-module/
+├── README.md                      # This file
+├── requirements.txt               # Python dependencies
+├── Dockerfile                     # Container definition
+├── .env                          # Configuration (create this)
+├── verify_setup.py               # Verification script
+└── app/
+    ├── __init__.py
+    ├── agents/
+    │   └── crewai_agent.py       # Main agent logic
+    ├── crew/
+    │   ├── server.py             # FastAPI HTTP server
+    │   ├── agent.py              # Agent factory
+    │   ├── config.py             # Configuration loading
+    │   ├── memory.py             # Session storage (Redis)
+    │   ├── router.py             # Model Router client
+    │   └── tests/                # Unit tests
+    ├── memory/
+    │   └── redis.py              # Redis implementation
+    └── router/
+        └── client.py             # Model Router HTTP client
+```
+
+### Using the CLI
+
+The application includes a command-line interface for development:
+
+```bash
+# Interactive mode
+python -m app.crew.runner run
+
+# Session replay
+python -m app.crew.runner replay session-123
+
+# Load persona
+python -m app.crew.runner load_persona /path/to/persona.yaml
+```
+
+### Custom Memory Backend
+
+Store session state somewhere other than Redis:
+
+```python
+from app.crew.memory import InMemoryMemory
+from app.crew.agent import create_agent
+
+# Use in-memory storage instead of Redis
+agent = create_agent(
+    model_router_url="http://localhost:8000",
+    memory=InMemoryMemory()  # Great for testing
+)
+```
+
+### Adding Plugins
+
+Extend functionality with plugins that run before/after each request:
+
+```python
+from app.crew.plugins import Plugin
+
+class CustomPlugin(Plugin):
+    async def run(self, context):
+        # Modify context or call external services
+        context["custom_field"] = "custom_value"
+```
+
+---
+
+## 💡 Quick Reference
+
+| Task | Command |
+|------|---------|
+| Check setup | `python verify_setup.py` |
+| Start server | `python -m uvicorn app.crew.server:app --reload --port 9100` |
+| Test endpoint | `curl -X POST http://localhost:9100/run -H "Content-Type: application/json" -d '{"session_id":"test","input":"hello"}'` |
+| Check health | `curl http://localhost:9100/health` |
+| Inspect logs | `docker logs -f <container_id>` |
+| Build Docker | `docker build -t crewai-module:v1 .` |
+| Run Docker | `docker run -d -p 9100:910000 --env-file .env crewai-module:v1` |
+| Interactive CLI | `python -m app.crew.runner run` |
+
+---
+

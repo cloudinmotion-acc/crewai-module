@@ -2,6 +2,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import logging
 import traceback
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from .agent import create_agent
 from .config import MODEL_ROUTER_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
