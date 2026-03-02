@@ -1,0 +1,72 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+dist
+build
+.pytest_cache
+.coverage
+htmlcov
+*.egg
+
+# Virtual environments
+venv
+env
+ENV
+.venv
+
+# IDE and editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# Documentation and changelog
+README.md
+CHANGELOG.md
+SETUP_VERIFICATION_REPORT.md
+TROUBLESHOOTING.md
+INTEGRATION_COMPLETE.md
+COMPARISON_WITH_AGENT_RUNTIME.md
+
+# Testing
+pytest.ini
+setup.cfg
+tox.ini
+test/
+tests/
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.circleci
+Jenkinsfile
+
+# Infrastructure as Code
+terraform/
+kubernetes/
+docker-compose.yml
+docker-compose.*.yml
+
+# Misc
+.dockerignore
+Dockerfile
+*.log
+*.tmp
+node_modules
+package-lock.json
