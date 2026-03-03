@@ -1,21 +1,23 @@
-# Kubernetes deployment for crew-server
-# Usage: set provider configuration (e.g. KUBECONFIG env variable or
-# `kubeconfig` variable) and specify `image` when invoking terraform.
-
-provider "kubernetes" {
-  config_path = var.kubeconfig
-}
-
-resource "kubernetes_namespace" "app" {
+resource "kubernetes_secret_v1" "crewai_secrets" {
   metadata {
-    name = var.namespace
+    name      = "crewai-secrets"
+    namespace = var.model_router_output.namespace
+  }
+  type = "Opaque"
+  data = {
+    MODEL_ROUTER_URL = "http://${var.model_router_output.server_service_name}.${var.model_router_output.namespace}.svc.cluster.local:${tostring(var.model_router_output.server_service_port)}"
+    REDIS_HOST       = var.caching_output.configuration_endpoint_address
+    REDIS_PORT       = tostring(var.caching_output.port)
+    REDIS_PASSWORD   = var.caching_output.password
   }
 }
-
-resource "kubernetes_deployment" "crew" {
+resource "kubernetes_deployment_v1" "crew" {
   metadata {
     name      = "crew-server"
-    namespace = kubernetes_namespace.app.metadata[0].name
+    namespace = var.model_router_output.namespace
+    labels = {
+      app = "crew-server"
+    }
   }
   spec {
     replicas = var.replicas
@@ -34,48 +36,57 @@ resource "kubernetes_deployment" "crew" {
         container {
           name  = "crew"
           image = var.image
-          ports {
-            container_port = 9100
+
+          port {
+            container_port = var.pod_port
+            name           = "http"
           }
-          env = [
-            {
-              name  = "MODEL_ROUTER_URL"
-              value = var.model_router_url
-            },
-            {
-              name  = "REDIS_HOST"
-              value = var.redis_host
-            },
-            {
-              name  = "REDIS_PORT"
-              value = var.redis_port
-            },
-            {
-              name  = "REDIS_PASSWORD"
-              value = var.redis_password
+
+          env_from {
+            secret_ref {
+              name = kubernetes_secret_v1.crewai_secrets.metadata[0].name
             }
-          ]
+          }
+
+          resources {
+            requests = {
+              cpu    = var.resource_requests.cpu
+              memory = var.resource_requests.memory
+            }
+            limits = {
+              cpu    = var.resource_limits.cpu
+              memory = var.resource_limits.memory
+            }
+          }
         }
       }
     }
   }
+
+  depends_on = [kubernetes_secret_v1.crewai_secrets]
 }
 
-resource "kubernetes_service" "crew" {
+resource "kubernetes_service_v1" "crew" {
   metadata {
     name      = "crew-service"
-    namespace = kubernetes_namespace.app.metadata[0].name
+    namespace = var.model_router_output.namespace
+    labels = {
+      app = "crew-server"
+    }
   }
 
   spec {
     selector = {
-      app = kubernetes_deployment.crew.spec[0].template[0].metadata[0].labels.app
+      app = "crew-server"
     }
     port {
-      port        = 9100
-      target_port = 9100
+      port        = var.server_port
+      target_port = var.pod_port
       protocol    = "TCP"
+      name        = "http"
     }
-    type = "ClusterIP"
+    type = var.service_type
   }
+
+  depends_on = [kubernetes_deployment_v1.crew]
 }

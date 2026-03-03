@@ -48,7 +48,6 @@ desktop.ini
 
 # Environment variables and secrets
 .env
-.env.*
 .env.local
 .env.*.local
 
@@ -134,3 +133,4 @@ build/
 test_results/
 
 # End of file
+terraform/.terraform.lock.hcl

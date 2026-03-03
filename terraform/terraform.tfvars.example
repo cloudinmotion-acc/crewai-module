@@ -1,0 +1,24 @@
+image = "infraraja18/crewar-module:v1"
+
+platform_output = {
+  name             = "test1h3march"
+  owner            = "harani.koppisetti"
+  environment_type = "dev"
+  tags = {
+    key = "value"
+  }
+  system_name = "test1h3march"
+}
+
+caching_output = {
+  configuration_endpoint_address = "clustercfg.test1h3march-redis-dev.gcvryk.use1.cache.amazonaws.com"
+  password                       = "2ORrUQNDqYhZ20yD"
+  port                           = 6379
+}
+
+model_router_output = {
+  deployment_name     = "model-router-server-app"
+  namespace           = "model-router"
+  server_service_name = "model-router-server-service"
+  server_service_port = 8000
+}

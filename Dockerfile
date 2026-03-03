@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-Run useradd --create-home crew
+RUN useradd --create-home crew
 WORKDIR /app
 COPY requirements.txt .
 COPY app/ ./app/
