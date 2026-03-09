@@ -8,4 +8,5 @@ typer
 crewai
 psycopg2-binary
 requests
+pyyaml
 

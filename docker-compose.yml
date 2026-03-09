@@ -1,0 +1,39 @@
+
+services:
+  # Model Router (LLM Module)
+  model-router:
+    image: 310378384655.dkr.ecr.us-east-1.amazonaws.com/llm-module:v1
+    container_name: model-router
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    networks:
+      - crewai-network
+
+  # CrewAI Module
+  crewai-module:
+    image: crewai-module:v1
+    container_name: crewai-module
+    ports:
+      - "9100:9100"
+    depends_on:
+      - model-router
+    environment:
+      - MODEL_ROUTER_URL=http://model-router:8000
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - SESSION_TTL=${SESSION_TTL:-86400}
+    networks:
+      - crewai-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9100/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  crewai-network:
+    driver: bridge

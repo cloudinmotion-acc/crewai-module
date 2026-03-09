@@ -1,5 +1,8 @@
 import os
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 MODEL_ROUTER_URL: str = os.getenv("MODEL_ROUTER_URL", "http://localhost:8000")
 REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")

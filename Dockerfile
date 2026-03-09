@@ -1,36 +1,29 @@
-# This Dockerfile builds a lightweight image containing only the
-# CrewAI module and its minimal dependencies.  It assumes the
-# `agent-runtime` package is accessible via a local path or installed
-# from PyPI (if you choose to publish it).
-#
-# Usage (from repo root):
-#   docker build -f crew/Dockerfile -t crewai-server:latest .
-#
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# install any OS packages needed by Redis client / httpx etc.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     ca-certificates \
+    curl \
+    wget \
+    iputils-ping \
+    dnsutils \
+    netcat-traditional \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /crew
-
-# copy only the parts required for crew; keep the build context small
-COPY crew/requirements.txt ./requirements.txt
-COPY crew/crew ./crew
-
-# if the agent-runtime is required as a package, copy it too; otherwise
-# your build process should `pip install` it separately (e.g. from PyPI)
-COPY app ./app
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-# expose port used by the standalone CrewAI server
+RUN useradd --create-home crew
+WORKDIR /app
+COPY requirements.txt .
+COPY app/ ./app/
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+USER crew
 EXPOSE 9100
 
-# default to running the crew/server module; override CMD if needed
-CMD ["uvicorn", "crew.server:app", "--host", "0.0.0.0", "--port", "9100"]
+HEALTHCHECK --interval=30s --timeout=5s \
+    CMD curl -fsS http://127.0.0.1:9100/health || exit 1
+
+CMD ["uvicorn", "app.crew.server:app", "--host", "0.0.0.0", "--port", "9100"]
+

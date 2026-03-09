@@ -6,9 +6,10 @@ is intentionally minimal; you can extend it with broadcast logic,
 sub/message queues, or more sophisticated session handling as needed.
 """
 
-from typing import Dict
+from typing import Dict, Optional
 
 from .agent import create_agent
+from .observability import events
 
 
 class AgentRole:
@@ -25,7 +26,7 @@ class MultiAgentOrchestrator:
         model_router_url: str,
         redis_host: str,
         redis_port: int = 6379,
-        redis_password: str | None = None,
+        redis_password: Optional[str] = None,
     ) -> None:
         self.roles: Dict[str, AgentRole] = {}
         self.model_router_url = model_router_url
@@ -65,4 +66,14 @@ class MultiAgentOrchestrator:
             input_text=message,
             model=model,
         )
+        # emit an observability event for each turn so listeners can
+        # log/monitor the conversation.
+        events.emit("message", {
+            "from": from_role,
+            "to": to_role,
+            "session_id": session_id,
+            "input": message,
+            "response": response,
+            "model": model,
+        })
         return response
